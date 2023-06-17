@@ -19,8 +19,8 @@ use sandbox_derive::{CmdLineParamSet, CmdLineParams};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    param::ToCmdLineParams, stratovirt::virtiofs::DEFAULT_VHOST_USER_FS_BIN_PATH,
-    vm::HypervisorCommonConfig,
+    param::ToCmdLineParams, stratovirt::devices::DEFAULT_PCIE_ROOTPORT_CAPACITY,
+    stratovirt::virtiofs::DEFAULT_VHOST_USER_FS_BIN_PATH, vm::HypervisorCommonConfig,
 };
 
 #[allow(dead_code)]
@@ -38,17 +38,27 @@ const DEFAULT_STRATOVIRT_PATH: &str = "/usr/bin/stratovirt";
 const DEFAULT_KERNEL_PARAMS: &str =
     "console=hvc0 console=hvc1 iommu=off debug panic=1 pcie_ports=native";
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+pub struct PcieRootPorts(pub usize);
+impl Default for PcieRootPorts {
+    fn default() -> Self {
+        PcieRootPorts(DEFAULT_PCIE_ROOTPORT_CAPACITY)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct StratoVirtVMConfig {
     pub path: String,
     pub machine_type: String,
     pub block_device_driver: String,
     #[serde(flatten)]
     pub common: HypervisorCommonConfig,
+    #[serde(default)]
+    pub pcie_root_ports: PcieRootPorts,
     pub virtiofsd_conf: VirtiofsdConfig,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 pub struct VirtiofsdConfig {
     pub path: String,
 }
@@ -63,6 +73,7 @@ impl Default for StratoVirtVMConfig {
                 path: DEFAULT_VHOST_USER_FS_BIN_PATH.to_string(),
             },
             block_device_driver: "virtio-blk".to_string(),
+            pcie_root_ports: PcieRootPorts::default(),
         }
     }
 }

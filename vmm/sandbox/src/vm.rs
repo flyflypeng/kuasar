@@ -77,7 +77,7 @@ pub trait Recoverable {
     async fn recover(&mut self) -> Result<()>;
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, PartialEq)]
 pub struct HypervisorCommonConfig {
     #[serde(default)]
     pub debug: bool,

@@ -38,7 +38,7 @@ pub mod vhost_user_fs;
 pub mod virtio_net;
 pub mod vsock;
 
-pub(crate) const PCIE_ROOTPORT_CAPACITY: usize = 10;
+pub(crate) const DEFAULT_PCIE_ROOTPORT_CAPACITY: usize = 15;
 pub(crate) const PCIE_ROOTBUS_CAPACITY: usize = 32;
 
 pub(crate) const DEFAULT_PCIE_BUS: &str = "pcie.0";

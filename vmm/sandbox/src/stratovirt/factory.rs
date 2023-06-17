@@ -27,7 +27,7 @@ use super::devices::{
     serial::SerialDevice,
     vhost_user_fs::{VhostUserFs, DEFAULT_MOUNT_TAG_NAME},
     DEFAULT_CONSOLE_CHARDEV_ID, DEFAULT_CONSOLE_DEVICE_ID, DEFAULT_PCIE_BUS, DEFAULT_RNG_DEVICE_ID,
-    DEFAULT_SERIAL_DEVICE_ID, PCIE_ROOTPORT_CAPACITY,
+    DEFAULT_SERIAL_DEVICE_ID,
 };
 use crate::{
     device::Transport,
@@ -131,7 +131,7 @@ impl VMFactory for StratoVirtVMFactory {
         );
 
         // set pcie-root-ports for hotplugging
-        vm.create_pcie_root_ports(PCIE_ROOTPORT_CAPACITY)?;
+        vm.create_pcie_root_ports(self.default_config.pcie_root_ports.0)?;
 
         Ok(vm)
     }

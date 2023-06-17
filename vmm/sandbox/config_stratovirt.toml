@@ -9,6 +9,7 @@ initrd_path = "/var/lib/kuasar/kuasar.initrd"
 kernel_params = "task.log_level=debug task.sharefs_type=virtiofs"
 vcpus = 1
 memory_in_mb = 1024
+pcie_root_ports = 15
 block_device_driver = "virtio-blk"
 debug = true
 
