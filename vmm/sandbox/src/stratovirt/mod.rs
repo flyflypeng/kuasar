@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 use std::{
+    collections::HashMap,
     os::unix::io::{AsRawFd, FromRawFd, RawFd},
     time::{Duration, SystemTime},
 };
@@ -25,7 +26,7 @@ use containerd_sandbox::error::{Error, Result};
 use futures_util::TryFutureExt;
 use log::{debug, error, trace, warn};
 use nix::{fcntl::OFlag, libc::kill, sys::stat::Mode};
-use qapi::qmp::quit;
+use qapi::qmp::{quit, CpuInfoFast};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use tokio::{
@@ -52,7 +53,7 @@ use crate::{
         virtiofs::VirtiofsDaemon,
     },
     utils::{read_file, read_std, wait_channel, wait_pid},
-    vm::{BlockDriver, VM},
+    vm::{BlockDriver, VcpuThreads, VM},
 };
 
 pub mod config;
@@ -237,6 +238,19 @@ impl VM for StratoVirtVM {
 
     async fn wait_channel(&self) -> Option<Receiver<(u32, i128)>> {
         return self.wait_chan.clone();
+    }
+
+    async fn get_vcpu_threads(&self) -> Result<VcpuThreads> {
+        let client = self.get_client()?;
+        let result = client.execute(qapi::qmp::query_cpus_fast {}).await?;
+        let mut vcpu_threads_map: HashMap<isize, isize> = HashMap::new();
+        for vcpu_info in result.iter() {
+            let CpuInfoFast::s390x { base, .. } = vcpu_info;
+            vcpu_threads_map.insert(base.cpu_index, base.thread_id);
+        }
+        Ok(VcpuThreads {
+            vcpus: vcpu_threads_map,
+        })
     }
 }
 

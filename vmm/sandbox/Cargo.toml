@@ -46,3 +46,4 @@ netlink-packet-route = "0.15"
 netlink-packet-core = "0.5.0"
 ttrpc = { version = "0.7", features = ["async"] }
 protobuf = "3.2"
+cgroups-rs = "0.3.2"

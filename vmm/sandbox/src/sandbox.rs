@@ -35,10 +35,11 @@ use tokio::{
 use vmm_common::{api::sandbox_ttrpc::SandboxServiceClient, storage::Storage, SHARED_DIR_SUFFIX};
 
 use crate::{
+    cgroup::SandboxCgroup,
     client::{client_check, client_update_interfaces, client_update_routes, new_sandbox_client},
     container::KuasarContainer,
     network::{Network, NetworkConfig},
-    utils::get_resources,
+    utils::{get_resources, get_sandbox_cgroup_parent_path},
     vm::{Hooks, Recoverable, VMFactory, VM},
 };
 
@@ -152,6 +153,9 @@ pub struct KuasarSandbox<V: VM> {
     pub(crate) client: Arc<Mutex<Option<SandboxServiceClient>>>,
     #[serde(skip, default)]
     pub(crate) exit_signal: Arc<ExitSignal>,
+    #[serde(skip, default)]
+    pub(crate) sandbox_cgroups: SandboxCgroup,
+    pub(crate) sandbox_cgroup_path: String,
 }
 
 #[async_trait]
@@ -168,6 +172,23 @@ where
             return Err(Error::AlreadyExist("sandbox".to_string()));
         }
 
+        let mut sandbox_cgroups = SandboxCgroup::default();
+        let sandbox_cgroup_path = get_sandbox_cgroup_parent_path(&s.sandbox).unwrap();
+        // Currently only support cgroup V1, cgroup V2 is not supported now
+        if !cgroups_rs::hierarchies::is_cgroup2_unified_mode() {
+            // Create sandbox's cgroup and apply sandbox's resources limit
+            let create_and_update_sandbox_cgroup = (|| {
+                sandbox_cgroups = SandboxCgroup::create_sandbox_cgroups(&s.sandbox)?;
+                sandbox_cgroups.update_res_for_sandbox_cgroups(&s.sandbox)?;
+                Ok(())
+            })();
+            // If create and update sandbox cgroup failed, do rollback operation
+            if let Err(e) = create_and_update_sandbox_cgroup {
+                let _ = sandbox_cgroups.remove_sandbox_cgroups();
+                return Err(e);
+            }
+        }
+
         // TODO support network
         let vm = self.factory.create_vm(id, &s).await?;
         let mut sandbox = KuasarSandbox {
@@ -182,6 +203,8 @@ where
             network: None,
             client: Arc::new(Mutex::new(None)),
             exit_signal: Arc::new(ExitSignal::default()),
+            sandbox_cgroups,
+            sandbox_cgroup_path,
         };
 
         // Handle pod network if it has a private network namespace
@@ -218,6 +241,22 @@ where
         let mut sandbox = sandbox_mutex.lock().await;
         self.hooks.pre_start(&mut sandbox).await?;
         sandbox.start().await?;
+
+        // Currently only support cgroup V1, cgroup V2 is not supported now
+        if !cgroups_rs::hierarchies::is_cgroup2_unified_mode() {
+            // add vmm process into sandbox cgroup
+            if let SandboxStatus::Running(vmm_pid) = sandbox.status {
+                let vcpu_threads = sandbox.vm.get_vcpu_threads().await?;
+                sandbox
+                    .sandbox_cgroups
+                    .add_process_into_sandbox_cgroups(vmm_pid, vcpu_threads)?;
+            } else {
+                return Err(Error::Other(anyhow!(
+                    "sandbox status is not Running after started!"
+                )));
+            }
+        }
+
         let sandbox_clone = sandbox_mutex.clone();
         monitor(sandbox_clone);
         self.hooks.post_start(&mut sandbox).await?;
@@ -250,6 +289,13 @@ where
         if let Some(sb_mutex) = sb_clone.get(id) {
             let mut sb = sb_mutex.lock().await;
             sb.stop(true).await?;
+
+            // Currently only support cgroup V1, cgroup V2 is not supported now
+            if !cgroups_rs::hierarchies::is_cgroup2_unified_mode() {
+                // remove the sandbox cgroups
+                sb.sandbox_cgroups.remove_sandbox_cgroups()?;
+            }
+
             cleanup_mounts(&sb.base_dir).await?;
             remove_dir_all(&sb.base_dir).await?;
         }

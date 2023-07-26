@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use async_trait::async_trait;
 use containerd_sandbox::{
@@ -70,6 +70,7 @@ pub trait VM: Serialize + Sync + Send {
     async fn ping(&self) -> Result<()>;
     fn socket_address(&self) -> String;
     async fn wait_channel(&self) -> Option<Receiver<(u32, i128)>>;
+    async fn get_vcpu_threads(&self) -> Result<VcpuThreads>;
 }
 
 #[macro_export]
@@ -196,4 +197,8 @@ impl FromStr for ShareFsType {
             _ => Err(Error::InvalidArgument(s.to_string())),
         }
     }
+}
+
+pub struct VcpuThreads {
+    pub vcpus: HashMap<isize, isize>,
 }

@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 use std::{
+    collections::HashMap,
     os::unix::io::{AsRawFd, FromRawFd, RawFd},
     time::{Duration, SystemTime},
 };
@@ -54,7 +55,7 @@ use crate::{
         utils::detect_pid,
     },
     utils::{read_file, read_std, wait_channel, wait_pid},
-    vm::{BlockDriver, VM},
+    vm::{BlockDriver, VcpuThreads, VM},
 };
 
 pub mod config;
@@ -297,6 +298,13 @@ impl VM for QemuVM {
 
     async fn wait_channel(&self) -> Option<Receiver<(u32, i128)>> {
         return self.wait_chan.clone();
+    }
+
+    async fn get_vcpu_threads(&self) -> Result<VcpuThreads> {
+        // TODO: support get vcpu threads id
+        Ok(VcpuThreads {
+            vcpus: HashMap::new(),
+        })
     }
 }
 
