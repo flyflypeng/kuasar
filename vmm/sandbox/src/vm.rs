@@ -200,5 +200,5 @@ impl FromStr for ShareFsType {
 }
 
 pub struct VcpuThreads {
-    pub vcpus: HashMap<isize, isize>,
+    pub vcpus: HashMap<i64, i64>,
 }
